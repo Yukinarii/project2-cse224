@@ -177,6 +177,9 @@ func main() {
 	nc := 0
 	sc := make(chan bool)
 	for {
+		if nc == num_server - 1 {
+			break
+		}
 		conn, err := listener.Accept()
 		if err != nil {
 			log.Printf("server connecetion failed")
@@ -209,10 +212,6 @@ func main() {
 			conn.Write([]byte("Finished"))
 			c <- true
 		}(conn, sc)
-
-		if nc == num_server - 1 {
-			break
-		}
 	}
 
 	numClientsComplete := 0
