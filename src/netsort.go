@@ -175,6 +175,7 @@ func main() {
 
 	// send records out
 	nc := 0
+	sc := make(chan bool)
 	for {
 		conn, err := listener.Accept()
 		if err != nil {
@@ -183,7 +184,7 @@ func main() {
 		}
 
 		nc++
-		go func(conn net.Conn) {
+		go func(conn net.Conn, c chan bool) {
 			defer conn.Close()
 
 			buf := make([]byte, 16)
@@ -206,7 +207,8 @@ func main() {
 
 			fmt.Println("successfully send data to remote")
 			conn.Write([]byte("Finished"))
-		}(conn)
+			c <- true
+		}(conn, sc)
 
 		if nc == num_server - 1 {
 			break
@@ -225,17 +227,21 @@ func main() {
 			fmt.Println("appended ", data[i * 100: (i + 1) * 100])
 		}
 	}
-	fmt.Println("communication stage ends")
+	//fmt.Println("communication stage ends")
 
 	for i := 0; i < len(r[serverId].serverRecords); i++ {
 		localRecords = append(localRecords, r[serverId].serverRecords[i])
 	}
 
-	fmt.Println("sorting")
+	for i := 0; i < num_server - 1; i++ {
+		<- sc
+	}
+	//fmt.Println("sorting")
 	sort.Slice(localRecords, func(i, j int) bool {
 		return bytes.Compare(localRecords[i][:10], localRecords[j][:10]) < 0
 	})
 
 	fmt.Println("output")
 	ioutil.WriteFile(output, bytes.Join(localRecords, []byte("")), 0666)
+
 }
