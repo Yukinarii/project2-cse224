@@ -107,14 +107,15 @@ func main() {
 	for i := 0; i < len(data) / 100; i++ {
 		sId := getServerId(firstN, data[i * 100: i * 100 + 10])
 		r[sId].serverRecords = append(r[sId].serverRecords, data[i * 100: (i + 1) * 100])
-		fmt.Printf("%d ", sId)
 	}
 
+	for i:= 0; i < num_server; i++ {
+		fmt.Println(len(r[i].serverRecords), " ")
+	}
 	// communication stage
 	host, port := getAddr(scs, serverId)
 
 	done := make(chan []byte)
-	rcvRecords := make([]records, num_server)
 
 
 	listener, err := net.Listen("tcp", host + ":" + port)
@@ -129,7 +130,7 @@ func main() {
 		}
 
 		// connect to the other servers and receive records from them
-		go func(c chan []byte, id int, host string, port string, rcvRecords []records) {
+		go func(c chan []byte, id int, host string, port string) {
 			var conn net.Conn
 			var err error
 			var res []byte
@@ -148,7 +149,6 @@ func main() {
 			// send id to tell server the interested data
 			_, err = conn.Write([]byte(strconv.Itoa(serverId)))
 			check(err)
-
 			buf := make([]byte, 100)
 			for {
 				n, err := conn.Read(buf)
@@ -161,16 +161,17 @@ func main() {
 						break
 					}
 				}
-
+				
 				if string(buf[:n]) == "Finished" {
 					fmt.Println("All data has been received")
 					break
 				}
-				fmt.Println("received ", buf, " from" , id)
-				res = append(res, buf...)
+				//fmt.Println("received ", buf, " from" , id)
+				res = append(res, buf[:n]...)
 			}
+			fmt.Println(len(res), "records are received from ", host)
 			c <- res
-		}(done, scs.Servers[i].ServerId, scs.Servers[i].Host, scs.Servers[i].Port, rcvRecords)
+		}(done, scs.Servers[i].ServerId, scs.Servers[i].Host, scs.Servers[i].Port)
 	}
 
 	// send records out
@@ -197,19 +198,19 @@ func main() {
 			}
 			sid, _ := strconv.Atoi(string(buf[:n]))
 
-			fmt.Println("accept a connection from client ", sid, "ready to send ", len(r[sid].serverRecords), " records")
-			
+			cnt := 0
 			for i:= 0; i < len(r[sid].serverRecords); i++ {
 				payload := r[sid].serverRecords[i]
 				_, err = conn.Write(payload)
 				if err != nil {
 					log.Printf("sent failed")
 				}
-				fmt.Println("send to ", sid)
+				cnt++
+				//fmt.Println("send to ", sid)
 			}
 
-			fmt.Println("successfully send data to remote")
 			conn.Write([]byte("Finished"))
+			fmt.Println("accept a connection from client ", sid, "and sent ", cnt, " records")
 			c <- true
 		}(conn, sc)
 	}
@@ -223,8 +224,9 @@ func main() {
 		numClientsComplete += 1
 		for i := 0; i < len(data) / 100; i++ {
 			localRecords = append(localRecords, data[i * 100: (i + 1) * 100])
-			fmt.Println("appended ", data[i * 100: (i + 1) * 100])
+			//fmt.Println("appended ", data[i * 100: (i + 1) * 100])
 		}
+		fmt.Println(len(data)/100, "records are appended")
 	}
 	//fmt.Println("communication stage ends")
 
